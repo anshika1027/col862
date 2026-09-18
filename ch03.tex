@@ -1,0 +1,533 @@
+\documentclass[11pt]{book}
+
+\usepackage{ppbook}
+
+\begin{document}
+\setcounter{chapter}{2}
+\chapter{Symbolic Execution}
+
+
+\section{Symbolic execution}
+
+How to know whether a program satisfies its requirements?
+
+Different possibilities include model checking, testing,
+program analysis, theorem proving, Hoare logic, etc.
+
+\section{Testing}
+
+Normal testing uses concrete inputs.
+
+For factorial, for example, we can try
+
+\[
+n=0,\quad n=5,\quad n=-1,\quad n=20
+\]
+
+But only a finite number of inputs get checked.
+
+So passing all tests does not mean the property is true
+for every possible input.
+
+\section{The symbolic idea}
+
+Instead of giving one fixed value to the input,
+give it a symbolic value.
+
+\[
+n \rightarrow \alpha_n
+\]
+
+Then execute the program using this symbolic value.
+
+\begin{ppkey}
+The main purpose is to check whether a specified property
+can ever be violated.
+
+Symbolic execution combines some ideas from testing
+and model checking.
+\end{ppkey}
+
+For example,
+
+\[
+assert(result \geq 1 \lor n<0)
+\]
+
+Here $n$ is symbolic.
+
+The execution engine keeps track of what must be true
+for the current path.
+
+\section{Symbolic execution engine}
+
+A Symbolic Execution Engine (SEE) keeps information
+about every explored path/state.
+
+Mainly,
+
+\[
+(\pi,\sigma,pc)
+\]
+
+where
+
+\[
+\pi = \text{path constraint}
+\]
+
+\[
+\sigma = \text{symbolic store}
+\]
+
+\[
+pc = \text{program counter}
+\]
+
+\begin{ppdefn}
+The path constraint is a first-order Boolean formula
+which describes the conditions needed to reach that path.
+
+The symbolic store contains values of variables, which
+may be expressions instead of concrete numbers.
+\end{ppdefn}
+
+For example,
+
+\[
+x = \alpha_a + 2
+\]
+
+If the assignment is
+
+\[
+x := e
+\]
+
+then the symbolic store is updated by substitution:
+
+\[
+\sigma[x\mapsto e_s]
+\]
+
+where $e_s$ is the symbolic evaluation of $e$.
+
+\section{Branches}
+
+Suppose the current path constraint is $\pi$ and we reach
+
+\[
+if(e)\ then\ S_t\ else\ S_f
+\]
+
+Two possible states are created.
+
+For the true branch,
+
+\[
+\pi_t = \pi \land e_s
+\]
+
+For the false branch,
+
+\[
+\pi_f = \pi \land \neg e_s
+\]
+
+So one state can become two.
+
+And then each of those can again branch.
+
+\begin{ppnote}
+This is where the number of paths starts getting big.
+Input-dependent branches can repeatedly split the
+symbolic execution state.
+\end{ppnote}
+
+\section{The solver}
+
+We need to know whether a path constraint is actually
+possible.
+
+SAT / SMT solvers can be used for this.
+
+\[
+SAT \Rightarrow \text{path feasible}
+\]
+
+The solver can also give concrete values for the symbols.
+
+\[
+UNSAT \Rightarrow \text{path impossible}
+\]
+
+\[
+UNKNOWN/timeout
+\Rightarrow
+\text{could not determine}
+\]
+
+So symbolic execution can actually produce a concrete
+test input corresponding to a path.
+
+\section{SAT and SMT}
+
+Modern engines use solvers such as Z3, CVC4 and STP.
+
+SAT basically asks:
+
+\[
+\text{is this formula satisfiable?}
+\]
+
+SMT extends this idea with theories.
+
+For example, arrays can be represented symbolically.
+
+If
+
+\[
+B = Store(A,3,99)
+\]
+
+then $B$ is like $A$ except position $3$ gets value $99$.
+
+For other positions,
+
+\[
+j\neq i \Rightarrow B[j]=A[j]
+\]
+
+\section{Path explosion}
+
+Every input-dependent branch can fork execution.
+
+So the number of states can become huge.
+
+Main sources are
+
+\[
+\text{branches + loops + function calls}
+\]
+
+Loops are especially troublesome since iterations
+can keep generating new paths.
+
+\begin{pppitfall}
+Symbolic execution is powerful, but we cannot simply
+explore every possible path blindly.
+\end{pppitfall}
+
+\section{Concolic execution}
+
+In practice, symbolic and concrete execution are often
+mixed.
+
+This is called
+
+\[
+\boxed{\text{concolic execution}}
+\]
+
+Dynamic symbolic execution is a common approach.
+
+Concrete execution drives the symbolic exploration.
+
+A concrete store can be maintained as
+
+\[
+\sigma_c : Var \rightarrow Val
+\]
+
+Suppose initially
+
+\[
+a=1,\qquad b=1
+\]
+
+Concrete execution follows one path.
+
+The symbolic constraints for this path could be
+
+\[
+\pi=(\alpha_a\neq0)\land(\alpha_b\neq0)
+\]
+
+To explore another path, negate one branch condition
+and ask the solver for a new input.
+
+For example,
+
+\[
+(\alpha_a\neq0)\land(\alpha_b=0)
+\]
+
+gives one possible input
+
+\[
+a=1,\quad b=0
+\]
+
+which can drive execution through a different path.
+
+\begin{ppkey}
+Each concrete execution can reveal more unexplored
+branches.
+
+However, the SEE still has to decide which branch
+to explore next.
+\end{ppkey}
+
+There can be a very large number of non-taken branches,
+so heuristics matter.
+
+\section{External code}
+
+What if the program calls some function whose implementation
+is not available to the SEE?
+
+The output of that function may determine a later branch.
+
+The SEE can sometimes reason about the path condition,
+but generating an input that actually causes the external
+function to return the required value is not guaranteed.
+
+So external calls can cause problems in symbolic execution.
+
+Another issue is path divergence.
+
+A generated input is supposed to follow one symbolic path,
+but when actually executed it follows another path.
+
+One reason can be inaccurate modelling.
+
+Examples include
+
+\[
+\text{external calls, exceptions, casts, pointers}
+\]
+
+This can result in false negatives.
+
+\section{Choosing paths}
+
+Since we cannot explore everything, paths need to be
+chosen intelligently.
+
+Some methods are:
+
+\begin{itemize}
+    \item DFS -- go deep first, then backtrack
+    \item BFS -- expand paths level by level
+    \item Random path selection
+\end{itemize}
+
+KLEE can assign probabilities using path length
+and branch arity.
+
+Coverage-based search can also give weights to states
+and use them for selecting which state to explore.
+
+\section{Online and offline execution}
+
+\textbf{Online executor:}
+
+Multiple paths are explored in one run.
+
+At an input-dependent branch, the state is cloned.
+
+Advantage: already executed instructions do not need
+to be repeated.
+
+But memory usage can become large.
+
+\textbf{Offline executor:}
+
+One path is explored at a time.
+
+This uses less memory, but previous work may have to
+be repeated.
+
+Checkpointing can reduce this repetition.
+
+\section{Symbolic memory}
+
+Symbolic execution also has to model memory.
+
+Memory can be thought of as a mapping from addresses to
+concrete or symbolic expressions.
+
+For a symbolic address, there can be multiple possible
+locations.
+
+For example, if
+
+\[
+a[i]
+\]
+
+and $i$ is symbolic, it may mean different array locations.
+
+One option is to fork the state for different possible
+addresses.
+
+So symbolic memory itself can create more states.
+
+For arrays, the theory of arrays can be used by the solver.
+
+Full symbolic memory gives a more accurate model,
+but can become intractable because of the explosion.
+
+Another option is address concretization:
+
+convert a symbolic pointer/address to one particular
+concrete address.
+
+This reduces complexity but loses some precision.
+
+\section{ITE expressions}
+
+Instead of always forking, possible values can also
+be represented using an if-then-else expression.
+
+\[
+ITE(c,T,F)
+\]
+
+means
+
+\[
+\begin{cases}
+T & c\text{ true}\\
+F & c\text{ false}
+\end{cases}
+\]
+
+Solvers can reason about these expressions without
+necessarily creating a new state for every possibility.
+
+\section{Environment}
+
+Programs interact with files, libraries, system calls, etc.
+
+SEE needs some model of these external effects.
+
+For example, KLEE has abstract models for external
+functions and a basic symbolic file system.
+
+Operations on symbolic files can again create branches.
+
+\section{Reducing the number of paths}
+
+One way to reduce the number of paths is to prune
+paths which are impossible.
+
+At a branch, feasibility can be checked early.
+
+For example, if
+
+\[
+\pi=(x>0)\land(y=x+1)\land(z<0)\land(z>10)
+\]
+
+then
+
+\[
+z<0\land z>10
+\]
+
+is already impossible.
+
+So paths containing the same contradiction can be discarded.
+
+\begin{ppnote}
+Unsatisfiable constraints can therefore be used to prune
+symbolic execution states early.
+\end{ppnote}
+
+This is where unsat cores are useful.
+
+\section{Summaries}
+
+If the same function or loop is executed many times,
+doing symbolic exploration again and again is expensive.
+
+The basic idea is
+
+\[
+\text{build summary}
+\rightarrow
+\text{save it}
+\rightarrow
+\text{reuse}
+\]
+
+For every path, relate input conditions with output
+conditions.
+
+A function summary can then be a disjunction of the
+possible path formulas.
+
+For example,
+
+\[
+\phi_{isPos}
+=
+(x>0\land ret=1)
+\lor
+(x\leq0\land ret=0)
+\]
+
+This summary is independent of the calling context,
+so it can be reused.
+
+One issue is that a concrete state can satisfy more than
+one precondition.
+
+So using a summary does not always mean that the exact
+same concrete path will be followed.
+
+\section{LLMs and symbolic execution}
+
+LLMs can help in different parts of symbolic execution.
+
+\begin{itemize}
+    \item Path prioritisation
+    \item Loop summarisation
+    \item Harness synthesis
+    \item Environment modelling
+    \item Approximate models for difficult computations
+    \item Explaining counterexamples / root cause
+\end{itemize}
+
+For path prioritisation, vulnerabilities can be used
+to decide which paths deserve more attention.
+
+For loops, LLMs may help produce a closed-form summary.
+
+For external libraries, system calls and callbacks,
+LLMs can help construct approximate models.
+
+\section{Overall idea}
+
+The basic flow is
+
+\[
+\text{symbolic inputs}
+\rightarrow
+\text{execute}
+\rightarrow
+\text{path constraints}
+\rightarrow
+\text{solver}
+\]
+
+Then the solver tells us whether the path is possible,
+and if possible it can give an actual input.
+
+\begin{ppkey}
+The main difficulty is that the number of possible paths
+and symbolic states can become very large.
+\end{ppkey}
+
+\end{document}

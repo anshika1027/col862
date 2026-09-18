@@ -1,0 +1,263 @@
+\documentclass[11pt]{book}
+
+\usepackage{ppbook}
+
+\begin{document}
+
+\setcounter{chapter}{4}
+\chapter{LLM for Specification Synthesis}
+
+LLMs can make mistakes.
+
+They also sometimes don't pay attention to the important
+part of a long prompt.
+
+As context gets very long, the middle part may get ignored.
+
+Also, LLMs are autoregressive, so an error in one output
+can become input for the next step:
+
+\[
+\text{error}_1
+\rightarrow
+\text{input}_2
+\rightarrow
+\text{error}_2
+\rightarrow
+\cdots
+\]
+
+So again the idea is:
+
+\[
+\text{LLM generates candidate spec}
+\rightarrow
+\text{static analysis / formal verification}
+\rightarrow
+\text{check}
+\]
+
+\section{AutoSpec}
+
+Main idea = don't give the whole program to the LLM at once.
+
+Break the program into smaller pieces first.
+
+\[
+\text{large program}
+\rightarrow
+\text{decomposition}
+\rightarrow
+\text{smaller parts}
+\]
+
+Program decomposition gives a call graph /
+inter-procedural CFG.
+
+Then specs are generated bottom-up.
+
+If $f$ calls $f_1,f_2,\ldots$
+
+first get specs for the callees,
+
+then use those while generating the spec for $f$.
+
+\[
+f_1,f_2 \rightarrow f
+\]
+
+This reduces the amount of context the LLM has to
+deal with at one time.
+
+After generating a spec, don't directly trust it.
+
+First check whether the spec is satisfiable / valid.
+
+Then another check:
+
+is this spec actually enough to finish the
+verification?
+
+If not,
+
+\[
+\text{strengthen spec}
+\rightarrow
+\text{verify again}
+\]
+
+so generation is iterative.
+
+\section{Few-shot prompting}
+
+Giving a few relevant examples helps.
+
+Instead of only telling the LLM the task,
+give examples like
+
+\[
+(\text{program},\text{corresponding spec})
+\]
+
+This helps it understand both the format and
+how specifications should look.
+
+For nested loops, legality of generated specs can
+be checked early, while satisfiability may be
+checked later.
+
+Frama-C is used for verification in AutoSpec.
+
+The main idea is still:
+
+\[
+\text{generate}
+\rightarrow
+\text{check}
+\rightarrow
+\text{strengthen if needed}
+\]
+
+\section{SpecGen}
+
+Another approach for generating specifications.
+
+The first phase is more conversation based.
+
+Start with few-shot examples and ask the LLM to
+generate specs.
+
+Then the verifier gives feedback when something fails.
+
+That failure information is used in the next
+LLM round.
+
+\[
+Spec_0
+\rightarrow
+Verifier
+\rightarrow
+feedback
+\rightarrow
+LLM
+\rightarrow
+Spec_1
+\]
+
+and repeat.
+
+\begin{ppnote}
+Verifier errors can be too large or too abstract.
+
+Instead of dumping everything to the LLM,
+only one verification failure is reported per attempt.
+
+Failures can then be collected and summarised into
+some guidance.
+\end{ppnote}
+
+\section{Mutation}
+
+Sometimes the LLM-generated spec is close,
+but not exactly correct.
+
+Instead of generating everything again from scratch,
+take the failing specification and modify it.
+
+\[
+Spec
+\rightarrow
+\text{mutation}
+\rightarrow
+Spec'
+\]
+
+There are different mutation operators.
+
+For example, logical operators can be changed,
+comparisons can be changed, etc.
+
+Then check which mutated specifications can
+pass verification.
+
+So:
+
+\[
+\text{failing spec}
+\rightarrow
+\text{mutate}
+\rightarrow
+\text{candidate specs}
+\rightarrow
+\text{verification}
+\]
+
+If a mutation still fails, it can be mutated again.
+
+So this becomes a search over nearby specifications.
+
+\section{Verification feedback}
+
+Verification failure feedback is useful,
+but error messages are often very abstract/general.
+
+So the LLM may not understand exactly what needs
+to be changed.
+
+Mutation gives another way to explore possible
+corrections.
+
+For selecting mutations, candidates can be grouped
+according to the same template / family.
+
+Then a heuristic can be used to decide which
+candidate should actually be sent for verification.
+
+So not every possible mutation needs to be checked.
+
+\section{Overall idea}
+
+Both approaches use the same basic idea:
+
+\begin{ppkey}
+\[
+\boxed{
+\text{LLM generates}
+\quad\rightarrow\quad
+\text{formal tool checks}
+}
+\]
+
+LLM is useful for producing possible specifications,
+but verification is still done by the formal tools.
+\end{ppkey}
+
+AutoSpec:
+
+\[
+\text{decompose program}
+\rightarrow
+\text{generate bottom-up}
+\rightarrow
+\text{validate}
+\rightarrow
+\text{strengthen}
+\]
+
+SpecGen:
+
+\[
+\text{generate}
+\rightarrow
+\text{get failure feedback}
+\rightarrow
+\text{revise / mutate}
+\rightarrow
+\text{verify}
+\]
+
+The important thing is keeping the LLM in the
+candidate-generation/search part rather than
+letting its output alone decide correctness.
+
+\end{document}

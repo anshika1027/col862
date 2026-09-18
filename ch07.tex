@@ -1,0 +1,277 @@
+\documentclass[11pt]{book}
+
+\usepackage{ppbook}
+
+\begin{document}
+
+\setcounter{chapter}{6}
+\chapter{LLMs for Program Repair}
+
+Normal APR tries to learn transformations like
+
+\[
+\text{buggy code} \rightarrow \text{fixed code}
+\]
+
+But with LLMs, another idea is there:
+
+give the model the surrounding code and directly ask
+it to predict the correct code.
+
+So the model uses the context of the buggy program.
+
+\section{Code infilling}
+
+Suppose one line is wrong.
+
+Instead of generating the whole program, mask that part:
+
+\[
+\text{prefix} \quad <MASK> \quad \text{suffix}
+\]
+
+and let the model fill the missing part.
+
+CodeBERT can be used for replacing the masked tokens.
+
+So roughly:
+
+\[
+\text{buggy line}
+\rightarrow
+\text{mask}
+\rightarrow
+\text{model}
+\rightarrow
+\text{replacement}
+\]
+
+This is useful because we already know roughly where
+the bug is.
+
+There are different ways of asking the model to
+generate the repair.
+
+\begin{itemize}
+    \item complete function generation
+    \item correct code infilling
+    \item single line generation
+\end{itemize}
+
+Complete function = regenerate the whole function.
+
+Infilling = keep prefix and suffix, replace the
+buggy part.
+
+Single line = only make the required one-line change.
+
+For infilling,
+
+\[
+\boxed{
+\text{prefix} + [\text{buggy location}] + \text{suffix}
+}
+\]
+
+The suffix is useful too.
+
+It gives the model information about what comes
+after the buggy statement, so it has more context
+while predicting the replacement.
+
+\section{Many patches}
+
+One generated patch is not enough.
+
+Generate multiple possible patches for the same bug:
+
+\[
+P_1,P_2,P_3,\ldots,P_n
+\]
+
+then validate them.
+
+Only patches which pass the required checks are
+potential repairs.
+
+Sampling controls how different the generated patches
+can be.
+
+Temperature affects the randomness of sampling.
+
+\[
+\text{higher temperature}
+\rightarrow
+\text{more variation}
+\]
+
+\[
+\text{lower temperature}
+\rightarrow
+\text{more predictable output}
+\]
+
+Need some balance because too much randomness can
+give useless patches.
+
+\section{Patch entropy}
+
+Another thing recorded = entropy of the generated patch.
+
+Basically based on the probabilities assigned by
+the model.
+
+For a token with probability $p$,
+
+\[
+H=-\log p
+\]
+
+For a complete generated sequence:
+
+\[
+\text{mean entropy}
+=
+\text{average over generated tokens}
+\]
+
+\[
+\text{sum entropy}
+=
+\text{total over the sequence}
+\]
+
+Lower entropy means the model considers the generated
+sequence more natural / likely.
+
+So patches with lower entropy can be tried first.
+
+\[
+\text{lower entropy}
+\rightarrow
+\text{higher priority}
+\]
+
+\section{Why validation is needed}
+
+LLM can generate code which looks correct but is
+actually wrong.
+
+So generated patch $\neq$ accepted patch.
+
+Need to compile / test / verify the patch.
+
+\[
+\text{LLM}
+\rightarrow
+\text{candidate patches}
+\rightarrow
+\text{validation}
+\]
+
+Only then can we say a patch works for the checked
+cases.
+
+\section{Model size}
+
+Larger models generally gave a higher ratio of
+correct patches to generated candidates.
+
+But model size also has a cost.
+
+\[
+\text{model size}\uparrow
+\Rightarrow
+\text{generation time}\uparrow
+\]
+
+So there is a tradeoff between quality and speed.
+
+Also interesting:
+
+models using correct-code infilling and single-line
+generation produced a higher ratio of correct fixes
+than complete-function generation.
+
+The reason makes sense because the model has a much
+smaller thing to change.
+
+\[
+\text{small targeted change}
+\quad vs \quad
+\text{rewrite whole function}
+\]
+
+Less unnecessary code to generate.
+
+The model trained especially on code can perform
+well for this task.
+
+So parameter count alone is not everything.
+
+Training data / what the model was trained for matters.
+
+\section{Errors}
+
+Two types to think about:
+
+\subsection{Syntax errors}
+
+\[
+\text{generated code doesn't parse / compile}
+\]
+
+\subsection{Semantic errors}
+
+\[
+\text{code runs but behaviour is wrong}
+\]
+
+Correct code infilling had relatively low syntactic
+errors and also low semantic errors in the reported
+results.
+
+\section{Combining APR and LLMs}
+
+Traditional APR tools can also be combined with LLMs.
+
+For example,
+
+\[
+\text{APR}
++
+\text{LLM generated patches}
+\]
+
+APR can provide candidate patch ingredients /
+locations, while the LLM can generate different
+possible repairs.
+
+Then verification decides which candidates work.
+
+\begin{ppkey}
+The overall repair process is
+
+\[
+\text{buggy program}
+\rightarrow
+\text{bug location}
+\rightarrow
+\text{LLM generates patches}
+\]
+
+\[
+\rightarrow
+\text{rank / select candidates}
+\rightarrow
+\text{validate}
+\]
+\end{ppkey}
+
+Main idea = don't depend on one generated answer.
+
+Generate several possibilities, use the model's
+probabilities to prioritize them, and use program
+validation to check the actual repair.
+
+\end{document}

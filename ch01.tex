@@ -1,0 +1,241 @@
+\documentclass[11pt]{book}
+
+\usepackage{ppbook}
+
+\begin{document}
+
+\chapter{Introduction}
+
+\section{Why software engineering?}
+
+Software engineering is concerned with the correct development,
+implementation and maintenance of software systems.
+
+Some important parts of the software life cycle:
+
+\begin{itemize}
+    \item Requirements engineering
+    \item Architectural design
+    \item Implementation
+    \item Testing / verification
+    \item Deployment
+    \item Long-term maintenance
+\end{itemize}
+
+Quality assurance includes formal methods, static analysis,
+and unit/integration testing.
+
+Another important idea is abstraction and modular design
+$\rightarrow$ divide a system into decoupled components
+with well-defined interfaces.
+
+\section{Program analysis}
+
+Given a program $P$, program analysis tries to determine
+whether some property holds for all its behaviours.
+
+\[
+P \models \phi
+\]
+
+For example,
+
+\[
+P \models \text{``no divide by zero''}
+\]
+
+There are two broad ways of doing analysis:
+
+\begin{itemize}
+    \item \textbf{Static} $\rightarrow$ analysis without running
+    the program.
+    \begin{itemize}
+        \item Compiler analysis
+        \item Data-flow analysis
+        \item Abstract interpretation
+        \item Symbolic execution
+        \item Model checking
+    \end{itemize}
+
+    \item \textbf{Dynamic} $\rightarrow$ observe the program
+    while it is running.
+    \begin{itemize}
+        \item Testing
+        \item Profiling
+        \item Runtime monitoring
+        \item Dynamic taint analysis
+    \end{itemize}
+\end{itemize}
+
+\section{Formal verification}
+
+Formal verification can be thought of as
+
+\[
+\text{Model}+\text{Specification}+\text{Proof}
+\]
+
+\begin{ppdefn}
+The model describes the semantics of the program.
+
+The specification describes the correctness property
+we want to establish.
+
+The proof shows that the program satisfies the specification
+under the given semantics.
+\end{ppdefn}
+
+Examples include model checking, theorem proving,
+and symbolic verification.
+
+\section{Program analysis vs formal verification}
+
+Program analysis may infer useful information about
+a program, for example:
+
+\begin{itemize}
+    \item amount influences the balance
+    \item there are two possible paths
+    \item there is no pointer dereference
+\end{itemize}
+
+Formal verification goes further and tries to prove
+a specified property.
+
+For example,
+
+\[
+balance \geq 0 \land amount \geq 0
+\Rightarrow
+balance' \geq 0
+\]
+
+The point is that the property is not just observed
+or guessed --- it is proved.
+
+\section{Why this gets difficult}
+
+Think of Rice's theorem.
+
+There is a basic tradeoff:
+
+\[
+\text{precision}
+\longleftrightarrow
+\text{scalability}
+\]
+
+More precise analysis generally means more computation
+and cost.
+
+Some reasons:
+
+\begin{itemize}
+    \item infinitely many possible inputs
+    \item number of paths can grow exponentially
+    \item loops can create infinitely many executions
+\end{itemize}
+
+Real programs also have complicated state involving
+pointers, heap objects, data structures, recursion,
+callbacks, exceptions, threads, files, networks, etc.
+
+\begin{ppnote}
+Exact analysis becomes difficult very quickly when the
+program has many possible inputs, paths, and complex
+program state.
+\end{ppnote}
+
+\section{LLMs and program analysis}
+
+LLMs can help generate possible specifications
+from natural language.
+
+\[
+\text{Natural language}
+\rightarrow
+\text{Logic}
+\]
+
+For example:
+
+\[
+G(req) \rightarrow F(resp)
+\]
+
+This can represent the idea that every accepted request
+eventually receives a response.
+
+LLMs can also help with semantic inference, such as:
+
+\begin{itemize}
+    \item invariants
+    \item preconditions
+    \item postconditions
+    \item auxiliary lemmas
+\end{itemize}
+
+Sometimes an invariant is known to the underlying
+decision procedure but the SMT solver is unable to
+find it by itself.
+
+So an LLM can generate candidate invariants or lemmas.
+
+\begin{ppkey}
+LLMs are useful for generating candidate properties,
+but those candidates still need to be validated.
+\end{ppkey}
+
+\section{Limitations}
+
+LLMs cannot reliably verify their own output,
+so their output cannot itself be treated as a proof.
+
+They are neither guaranteed to be sound nor complete.
+
+\[
+\text{Soundness}
+\rightarrow
+\text{no false positives}
+\]
+
+\[
+\text{Completeness}
+\rightarrow
+\text{no false negatives}
+\]
+
+They can also be weaker at precise multi-step reasoning.
+
+For example,
+
+\[
+\forall x\exists y\;R(x,y)
+\]
+
+needs the quantifiers to remain in the correct order.
+A later reasoning step may accidentally change this.
+
+\section{overall idea}
+
+LLMs can help at several different layers:
+
+\begin{itemize}
+    \item \textbf{Property discovery}
+    $\rightarrow$ what should be checked?
+
+    \item \textbf{Abstraction discovery}
+    $\rightarrow$ what information should the analyzer maintain?
+
+    \item \textbf{Proof search}
+    $\rightarrow$ which invariant or lemma makes the proof work?
+
+    \item \textbf{Tool orchestration}
+    $\rightarrow$ which analyzer, verifier or solver should be used?
+\end{itemize}
+
+\begin{ppkey}
+Trust but verify.
+\end{ppkey}
+
+\end{document}

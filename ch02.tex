@@ -1,0 +1,362 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=0.8in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{enumitem}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{5pt}
+
+\begin{document}
+
+{\large \textbf{AI-Assisted Program Analysis \& Formal Verification}}
+
+\hfill 
+
+\vspace{8pt}
+
+\textbf{Precondition}
+
+condition which has to be true just before some code
+starts executing.
+
+So basically caller has to make sure this is satisfied.
+
+\[
+P \quad \rightarrow \quad C
+\]
+
+if precondition is not satisfied $\rightarrow$ can get
+wrong computation / security problem etc.
+
+One example discussed was Nomad Bridge hack.
+The check was incomplete, so an invalid root could pass.
+
+The required condition was
+
+\[
+\_root \neq 0
+\quad\land\quad
+confirmAt[\_root] > 0
+\]
+
+so just checking whether the value is non-zero was not
+enough.
+
+\vspace{8pt}
+
+\textbf{after the code}
+
+Postcondition = property which should hold immediately
+after the code finishes.
+
+Here responsibility is mainly with the callee.
+
+Hoare triple notation:
+
+\[
+\{P\}\ C\ \{Q\}
+\]
+
+means
+
+\begin{itemize}[leftmargin=18pt,itemsep=1pt]
+    \item $P$ : condition before
+    \item $C$ : program/code
+    \item $Q$ : condition after
+\end{itemize}
+
+Example:
+
+\[
+\{x>0\}\quad x:=x*2\quad\{x\bmod 2=0\}
+\]
+
+The postcondition says the resulting $x$ is even.
+
+\vspace{8pt}
+
+\textbf{strongest postcondition}
+
+$sp$ = most specific property which is guaranteed
+after executing the code.
+
+Basically tightest possible description of the
+output state.
+
+If we know a stronger fact than some $Q$, then
+
+\[
+sp \Rightarrow Q
+\]
+
+so strongest postcondition gives more information.
+
+\vspace{8pt}
+
+\textbf{WP}
+
+Weakest precondition is kind of reverse direction.
+
+Given the condition we want after the program,
+find the least restrictive condition required before
+the program.
+
+\[
+\{P\}\ C\ \{Q\}
+\]
+
+we calculate what $P$ has to be so that $Q$ is guaranteed.
+
+Example:
+
+\[
+\{P\}\quad x:=x+5\quad\{x>15\}
+\]
+
+After assignment we need
+
+\[
+x+5>15
+\]
+
+therefore
+
+\[
+x>10
+\]
+
+hence
+
+\[
+WP(x:=x+5,\ x>15)=x>10
+\]
+
+WP is obtained by reasoning backwards from the desired
+postcondition.
+
+\[
+P \Rightarrow WP
+\]
+
+\vspace{8pt}
+
+Some basic WP rules:
+
+\[
+wp(skip,Q)=Q
+\]
+
+\[
+wp(abort,Q)=false
+\]
+
+For assignment,
+
+\[
+wp(x:=E,Q)=Q[x\leftarrow E]
+\]
+
+i.e. substitute $E$ for $x$ in $Q$.
+
+For sequential statements,
+
+\[
+wp(S_1;S_2,Q)
+=
+wp(S_1,wp(S_2,Q))
+\]
+
+For conditional:
+
+\[
+wp(if\ B\ then\ S_1\ else\ S_2,Q)
+\]
+
+\[
+=
+(B\Rightarrow wp(S_1,Q))
+\land
+(\neg B\Rightarrow wp(S_2,Q))
+\]
+
+\vspace{8pt}
+
+\textbf{loop case}
+
+Loops are harder because we can have many iterations.
+
+Need some invariant $I$ which stays true while
+the loop is running.
+
+\vspace{8pt}
+
+\textbf{invariant}
+
+An invariant is a property which holds at a particular
+control point in the program.
+
+For a loop:
+
+\[
+\text{before loop}
+\]
+
+and at the beginning of every iteration,
+the invariant should hold.
+
+After the loop also it should still give us
+something useful.
+
+Three things to check:
+
+\[
+\text{initialisation}
+\]
+
+invariant is true before first iteration.
+
+\[
+P\Rightarrow I
+\]
+
+Then preservation:
+
+\[
+I\land B\land Body \Rightarrow I'
+\]
+
+one execution of the loop body should preserve $I$.
+
+Then exit:
+
+\[
+I\land\neg B\Rightarrow Q
+\]
+
+when loop stops, invariant + exit condition should
+give the required postcondition.
+
+\vspace{8pt}
+
+So roughly:
+
+\[
+P
+\rightarrow I
+\rightarrow I
+\rightarrow I
+\rightarrow \cdots
+\]
+
+and when the loop condition becomes false,
+
+\[
+I+\text{exit condition}\rightarrow Q
+\]
+
+\vspace{8pt}
+
+\textbf{Dafny}
+
+Dafny can use these conditions to automatically
+check programs.
+
+\begin{itemize}[leftmargin=18pt,itemsep=1pt]
+    \item \texttt{requires} = precondition
+    \item \texttt{ensures} = postcondition
+\end{itemize}
+
+For example,
+
+\[
+\texttt{requires } P
+\]
+
+means caller must establish $P$.
+
+and
+
+\[
+\texttt{ensures } Q
+\]
+
+means Dafny tries to prove $Q$ after execution.
+
+For some loops Dafny cannot finish the proof unless
+we give it the right invariant.
+
+\vspace{8pt}
+
+\textbf{termination}
+
+For loops that should terminate, need a quantity/relation
+that is well-founded and keeps decreasing.
+
+This is called a variant / decreases measure.
+
+Idea:
+
+\[
+V_0 > V_1 > V_2 > \cdots
+\]
+
+and because the relation is well-founded, we cannot
+keep decreasing forever.
+
+\vspace{8pt}
+
+\textbf{what Dafny does underneath}
+
+Dafny converts the program into logical formulas.
+
+These are called
+
+\[
+\text{Verification Conditions (VCs)}
+\]
+
+The VC is sent to an SMT solver, Z3.
+
+The idea is to check the negation of the property
+that Dafny wants to prove.
+
+Then:
+
+\[
+\text{UNSAT}
+\Rightarrow
+\text{no counterexample}
+\Rightarrow
+\text{property is valid}
+\]
+
+while
+
+\[
+\text{SAT}
+\Rightarrow
+\text{counterexample exists}
+\]
+
+and
+
+\[
+\text{UNKNOWN}
+\Rightarrow
+\text{solver could not settle it}
+\]
+
+So overall:
+
+\[
+\boxed{\text{Dafny program}
+\rightarrow
+\text{VC}
+\rightarrow
+\text{Z3}
+\rightarrow
+\text{proof / counterexample}}
+\]
+
+\end{document}
